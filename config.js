@@ -1,5 +1,4 @@
 window.__ENV__ = {
-  SUPABASE_URL: "",
-  SUPABASE_ANON_KEY: "",
+  FIREBASE_CONFIG: null,
   ALLOWED_EMAILS: [],
 };

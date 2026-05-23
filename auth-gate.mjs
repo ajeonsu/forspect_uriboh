@@ -1,4 +1,13 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+import {
+  getAuth,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+  signOut,
+} from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
 
 const authScreen = document.getElementById("auth-screen");
 const siteShell = document.getElementById("site-shell");
@@ -13,11 +22,27 @@ const formLogin = document.getElementById("auth-form-login");
 const formSignup = document.getElementById("auth-form-signup");
 const btnGoogle = document.getElementById("auth-btn-google");
 
-let supabase = null;
+let auth = null;
 let booted = false;
 
 function env() {
   return window.__ENV__ || {};
+}
+
+function firebaseConfig() {
+  const e = env();
+  if (e.FIREBASE_CONFIG?.apiKey) return e.FIREBASE_CONFIG;
+  const apiKey = e.FIREBASE_API_KEY || e.NEXT_PUBLIC_FIREBASE_API_KEY;
+  if (!apiKey) return null;
+  return {
+    apiKey,
+    authDomain: e.FIREBASE_AUTH_DOMAIN || e.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: e.FIREBASE_PROJECT_ID || e.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    storageBucket: e.FIREBASE_STORAGE_BUCKET || e.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId:
+      e.FIREBASE_MESSAGING_SENDER_ID || e.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    appId: e.FIREBASE_APP_ID || e.NEXT_PUBLIC_FIREBASE_APP_ID,
+  };
 }
 
 function setError(msg) {
@@ -41,14 +66,13 @@ function isAllowed(user) {
   return list.map((e) => e.trim().toLowerCase()).includes(email);
 }
 
-function showSite(session) {
+function showSite(user) {
   if (authScreen) authScreen.hidden = true;
   if (siteShell) siteShell.hidden = false;
   if (btnSignOut) {
     btnSignOut.hidden = false;
-    const label = session?.user?.email ? `ログアウト` : "ログアウト";
-    btnSignOut.textContent = label;
-    btnSignOut.title = session?.user?.email || "";
+    btnSignOut.textContent = "ログアウト";
+    btnSignOut.title = user?.email || "";
   }
   if (!booted && typeof window.bootCurriculum === "function") {
     booted = true;
@@ -68,20 +92,20 @@ function setBusy(busy) {
   });
 }
 
-async function handleSession(session) {
-  if (!session?.user) {
+async function handleUser(user) {
+  if (!user) {
     showAuthOnly();
     return;
   }
-  if (!isAllowed(session.user)) {
-    await supabase.auth.signOut();
+  if (!isAllowed(user)) {
+    await signOut(auth);
     setError("このアカウントは利用が許可されていません。管理者にお問い合わせください。");
     showAuthOnly();
     return;
   }
   setError("");
   setSuccess("");
-  showSite(session);
+  showSite(user);
 }
 
 function setAuthTab(mode) {
@@ -90,7 +114,7 @@ function setAuthTab(mode) {
   if (tabSignup) tabSignup.classList.toggle("is-active", !login);
   if (panelLogin) panelLogin.hidden = !login;
   if (panelSignup) panelSignup.hidden = login;
-  if (supabase) {
+  if (auth) {
     setError("");
     setSuccess("");
   }
@@ -113,31 +137,25 @@ function setAuthFormsDisabled(disabled) {
 async function init() {
   bindAuthTabs();
 
-  const { SUPABASE_URL, SUPABASE_ANON_KEY } = env();
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  const cfg = firebaseConfig();
+  if (!cfg?.apiKey || !cfg?.authDomain || !cfg?.projectId) {
     showAuthOnly();
     setAuthFormsDisabled(true);
     setError(
-      "認証の設定がありません。Vercel の環境変数（SUPABASE_URL / SUPABASE_ANON_KEY）を設定して再デプロイしてください。"
+      "Firebase の設定がありません。Vercel の環境変数に NEXT_PUBLIC_FIREBASE_*（または FIREBASE_*）を設定して再デプロイしてください。Firebase Console → プロジェクトの設定 → ウェブアプリの構成を参照。"
     );
     return;
   }
 
   setAuthFormsDisabled(false);
 
-  supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  window.__supabase = supabase;
+  const app = initializeApp(cfg);
+  auth = getAuth(app);
+  window.__firebaseAuth = auth;
 
-  const redirectTo = window.location.origin + window.location.pathname;
-
-  supabase.auth.onAuthStateChange((_event, session) => {
-    handleSession(session);
+  onAuthStateChanged(auth, (user) => {
+    handleUser(user);
   });
-
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  await handleSession(session);
 
   formLogin?.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -147,9 +165,12 @@ async function init() {
     const email = String(fd.get("email") || "").trim();
     const password = String(fd.get("password") || "");
     setBusy(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (err) {
+      setError(jaFirebaseError(err));
+    }
     setBusy(false);
-    if (error) setError(jaAuthError(error.message));
   });
 
   formSignup?.addEventListener("submit", async (e) => {
@@ -160,34 +181,32 @@ async function init() {
     const email = String(fd.get("email") || "").trim();
     const password = String(fd.get("password") || "");
     setBusy(true);
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { emailRedirectTo: redirectTo },
-    });
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+      setSuccess("登録が完了しました。ログインしました。");
+    } catch (err) {
+      setError(jaFirebaseError(err));
+    }
     setBusy(false);
-    if (error) setError(jaAuthError(error.message));
-    else
-      setSuccess(
-        "登録を受け付けました。確認メールが届いたらリンクを開き、再度このページからログインしてください。"
-      );
   });
 
   btnGoogle?.addEventListener("click", async () => {
     setError("");
     setSuccess("");
     setBusy(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo },
-    });
+    try {
+      await signInWithPopup(auth, new GoogleAuthProvider());
+    } catch (err) {
+      setError(jaFirebaseError(err));
+    }
     setBusy(false);
-    if (error) setError(jaAuthError(error.message));
   });
 
   btnSignOut?.addEventListener("click", async () => {
     setBusy(true);
-    await supabase.auth.signOut();
+    try {
+      await signOut(auth);
+    } catch (_) {}
     setBusy(false);
     location.hash = "#/";
     showAuthOnly();
@@ -195,12 +214,20 @@ async function init() {
   });
 }
 
-function jaAuthError(msg) {
-  const m = String(msg || "");
-  if (m.includes("Invalid login credentials")) return "メールアドレスまたはパスワードが正しくありません。";
-  if (m.includes("User already registered")) return "このメールアドレスは既に登録されています。ログインしてください。";
-  if (m.includes("Password should be")) return "パスワードは6文字以上で設定してください。";
-  return m || "認証に失敗しました。";
+function jaFirebaseError(err) {
+  const code = err?.code || "";
+  const map = {
+    "auth/invalid-email": "メールアドレスの形式が正しくありません。",
+    "auth/user-disabled": "このアカウントは無効です。",
+    "auth/user-not-found": "メールアドレスまたはパスワードが正しくありません。",
+    "auth/wrong-password": "メールアドレスまたはパスワードが正しくありません。",
+    "auth/invalid-credential": "メールアドレスまたはパスワードが正しくありません。",
+    "auth/email-already-in-use": "このメールアドレスは既に登録されています。ログインしてください。",
+    "auth/weak-password": "パスワードは6文字以上で設定してください。",
+    "auth/popup-closed-by-user": "ログインがキャンセルされました。",
+    "auth/unauthorized-domain": "このドメインは Firebase で許可されていません。Authentication → Settings → Authorized domains に追加してください。",
+  };
+  return map[code] || err?.message || "認証に失敗しました。";
 }
 
 init();

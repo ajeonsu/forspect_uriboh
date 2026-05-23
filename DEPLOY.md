@@ -1,66 +1,60 @@
-# URIBOH curriculum — Vercel + Supabase auth
+# URIBOH curriculum — Vercel + Firebase Auth
 
-## Vercel
+Login uses **Firebase Authentication** (email/password + Google). You do **not** need Supabase Third-Party Auth for this static site gate.
 
-1. Import this folder (`【カリキュラム】本稿用一式`) as the project root (or set **Root Directory** to this folder in an monorepo).
-2. Framework preset: **Other** (static). Build uses `vercel.json`:
-   - **Build command:** `npm run build`
-   - **Output directory:** `dist`
-3. **Environment variables** (Production and Preview):
+## Firebase Console
 
-   | Name | Value |
-   |------|--------|
-   | `NEXT_PUBLIC_SUPABASE_URL` or `SUPABASE_URL` | Project URL from Supabase → Settings → API |
-   | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` or `SUPABASE_ANON_KEY` | Publishable or `anon` public key |
-   | `ALLOWED_EMAILS` | Optional. Comma-separated emails allowed to enter the site |
+1. [Firebase Console](https://console.firebase.google.com/) → create or open project.
+2. **Build** → **Authentication** → **Get started**.
+3. **Sign-in method**:
+   - Enable **Email/Password**
+   - Enable **Google** (set support email / project if prompted)
+4. **Authentication** → **Settings** → **Authorized domains** — add:
+   - `forspect-uriboh.vercel.app`
+   - `localhost` (for local preview)
+5. **Project settings** (gear) → **Your apps** → **Web** (`</>`) → register app → copy config object.
 
-   Local: put the same values in `.env.local` and run `npm run build` (or `npm run preview`).
+## Vercel environment variables
 
-4. Deploy. Add your custom domain under Vercel → Domains.
+Set for **Production** and **Preview**, then **Redeploy**:
 
-**Note:** `img/` is large (~380MB). If the deploy fails or is slow, host images on Supabase Storage or a CDN and update paths later.
+| Variable | Example |
+|----------|---------|
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | `AIza...` |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | `your-project.firebaseapp.com` |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | `your-project-id` |
+| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | `your-project.appspot.com` |
+| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | `123456789` |
+| `NEXT_PUBLIC_FIREBASE_APP_ID` | `1:123:web:abc` |
+| `ALLOWED_EMAILS` | optional comma-separated allowlist |
 
-## Supabase
+`.env.local` is loaded at build time locally only (not in git).
 
-1. Create a project at [supabase.com](https://supabase.com).
-2. **Authentication → Providers**
-   - Enable **Email** (confirm email if you want verification before login).
-   - Enable **Google** and paste Client ID / Secret from Google Cloud.
-3. **Authentication → URL configuration**
-   - **Site URL:** `https://your-production-domain.com`
-   - **Redirect URLs** (add all that apply):
-     - `https://your-production-domain.com/**`
-     - `https://*.vercel.app/**` (preview deployments; Google OAuth may require each preview origin separately)
+## Vercel project
 
-## Google Cloud (for Google sign-in)
-
-1. APIs & Services → **OAuth consent screen** (configure app).
-2. **Credentials** → Create **OAuth 2.0 Client ID** → Web application.
-3. **Authorized JavaScript origins:**
-   - `https://your-production-domain.com`
-   - `http://localhost:3000` (if using `npx serve` locally)
-   - Preview: `https://your-project.vercel.app`
-4. **Authorized redirect URIs:** use the callback URL shown in Supabase → Authentication → Google provider (usually `https://<project-ref>.supabase.co/auth/v1/callback`).
+- Root: this folder
+- Build: `npm run build`
+- Output: `dist`
 
 ## Local preview
 
-```bash
-cd "【カリキュラム】本稿用一式"
-# Optional: put keys in .env and run build (see below)
-npm run build
-npx serve dist -p 3000
-```
-
-To bake env into `dist/config.js` locally (PowerShell):
-
 ```powershell
-$env:SUPABASE_URL="https://xxx.supabase.co"
-$env:SUPABASE_ANON_KEY="eyJ..."
-npm run build
+# Paste Firebase web config into .env.local (see .env.example)
+npm run preview
 ```
 
-Without keys, the login screen shows a configuration message.
+Open http://localhost:3000
+
+## Google sign-in
+
+Configure Google in **Firebase** → Authentication → Google (not only Google Cloud for Supabase).
+
+If you see `auth/unauthorized-domain`, add your Vercel URL under Firebase **Authorized domains**.
+
+## Supabase Third-Party Auth
+
+Skip **Authentication → Third-Party Auth → Firebase** in Supabase unless you later use Supabase Database/API with Firebase JWTs.
 
 ## Security
 
-Auth gates the UI for normal users. Curriculum HTML is still shipped in `index.html`. For stronger protection, content must be loaded from a protected backend or storage, not embedded in the static bundle.
+Auth gates the UI; curriculum HTML is still in the static bundle. Stronger protection requires serving content from a protected backend/storage.
