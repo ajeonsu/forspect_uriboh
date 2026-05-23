@@ -1,0 +1,9 @@
+{
+  "name": "uriboh-school-fc-site",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dist": "npm run build",
+    "preview": "npm run build && npx --yes serve dist -p 3000"
+  }
+}
