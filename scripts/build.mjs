@@ -56,6 +56,10 @@ function firebaseConfigFromEnv() {
 const COPY = [
   { from: "index.html", type: "file" },
   { from: "auth-gate.mjs", type: "file" },
+  { from: "favicon.png", type: "file" },
+  { from: "favicon-16.png", type: "file" },
+  { from: "favicon-32.png", type: "file" },
+  { from: "apple-touch-icon.png", type: "file" },
   { from: "img", type: "dir" },
 ];
 
