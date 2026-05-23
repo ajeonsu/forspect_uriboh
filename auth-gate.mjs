@@ -14,6 +14,7 @@ const siteShell = document.getElementById("site-shell");
 const authError = document.getElementById("auth-error");
 const authSuccess = document.getElementById("auth-success");
 const btnSignOut = document.getElementById("btn-sign-out");
+const navUserEmail = document.getElementById("nav-user-email");
 const tabLogin = document.getElementById("auth-tab-login");
 const tabSignup = document.getElementById("auth-tab-signup");
 const panelLogin = document.getElementById("auth-panel-login");
@@ -67,8 +68,14 @@ function isAllowed(user) {
 }
 
 function showSite(user) {
+  document.body.classList.remove("auth-locked");
   if (authScreen) authScreen.hidden = true;
   if (siteShell) siteShell.hidden = false;
+  if (navUserEmail && user?.email) {
+    navUserEmail.textContent = user.email;
+    navUserEmail.title = user.email;
+    navUserEmail.hidden = false;
+  }
   if (btnSignOut) {
     btnSignOut.hidden = false;
     btnSignOut.textContent = "ログアウト";
@@ -81,9 +88,14 @@ function showSite(user) {
 }
 
 function showAuthOnly() {
+  document.body.classList.add("auth-locked");
   if (authScreen) authScreen.hidden = false;
   if (siteShell) siteShell.hidden = true;
   if (btnSignOut) btnSignOut.hidden = true;
+  if (navUserEmail) {
+    navUserEmail.textContent = "";
+    navUserEmail.hidden = true;
+  }
 }
 
 function setBusy(busy) {
@@ -136,6 +148,7 @@ function setAuthFormsDisabled(disabled) {
 
 async function init() {
   bindAuthTabs();
+  document.body.classList.add("auth-locked");
 
   const cfg = firebaseConfig();
   if (!cfg?.apiKey || !cfg?.authDomain || !cfg?.projectId) {
@@ -226,6 +239,8 @@ function jaFirebaseError(err) {
     "auth/weak-password": "パスワードは6文字以上で設定してください。",
     "auth/popup-closed-by-user": "ログインがキャンセルされました。",
     "auth/unauthorized-domain": "このドメインは Firebase で許可されていません。Authentication → Settings → Authorized domains に追加してください。",
+    "auth/api-key-not-valid.-please-pass-a-valid-api-key.":
+      "Firebase API キーが無効です。Google Cloud → Credentials でキーの制限を確認するか、Firebase のプロジェクト設定から apiKey を再コピーして .env.local → npm run build → 再起動してください。",
   };
   return map[code] || err?.message || "認証に失敗しました。";
 }

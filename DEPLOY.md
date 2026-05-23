@@ -51,6 +51,15 @@ Configure Google in **Firebase** → Authentication → Google (not only Google 
 
 If you see `auth/unauthorized-domain`, add your Vercel URL under Firebase **Authorized domains**.
 
+### `auth/api-key-not-valid` (sign-up / login fails)
+
+1. Confirm you run **`npm run preview`** (serves `dist/`, not the repo root). In the browser open `http://localhost:3000/config.js` — `FIREBASE_CONFIG.apiKey` must not be empty.
+2. [Google Cloud Console](https://console.cloud.google.com/) → select project **forspect-uriboh** → **APIs & Services** → **Enabled APIs** → enable **Identity Toolkit API** (Firebase Auth).
+3. **Credentials** → click the **Browser key** used by Firebase (often auto-created) → **Edit**:
+   - **Application restrictions:** None (for testing), or HTTP referrers: `http://localhost:3000/*`, `https://forspect-uriboh.vercel.app/*`
+   - **API restrictions:** “Don’t restrict key”, or allow **Identity Toolkit API**
+4. Firebase → **Project settings** → your web app → copy `apiKey` again into `.env.local` → `npm run build` → restart preview.
+
 ## Supabase Third-Party Auth
 
 Skip **Authentication → Third-Party Auth → Firebase** in Supabase unless you later use Supabase Database/API with Firebase JWTs.
